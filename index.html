@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portfólio Completo — Header Transparente + Vídeos IndexedDB</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body,html {margin:0; padding:0; height:100%;}
+    #bgVideo { position: fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-2; }
+    .overlay { background: rgba(0,0,0,0.6); position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1; }
+    .dropzone{border:2px dashed #6b7280;border-radius:1rem;padding:1rem;text-align:center}
+    .dropzone.dragover{border-color:#8b5cf6;background:#1f2937}
+    .progress{height:8px;background:#374151;border-radius:9999px;overflow:hidden}
+    .progress > div{height:100%;background:#8b5cf6;width:0%}
+    .pill{padding:.35rem .8rem;border-radius:9999px;background:#4b5563}
+    .pill.active{background:#7c3aed;color:white}
+  </style>
+
+  <style>
+    .vidlink-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem}
+    .vidlink-input{flex:1;min-width:260px}
+  </style>
+
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
+
+  <!-- Vídeo de fundo -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="top-bg.mp4" type="video/mp4">
+  </video>
+  <div class="overlay"></div>
+
+  <!-- Login -->
+  <section id="loginPage" class="min-h-screen flex items-center justify-center p-6 relative z-10">
+    <div class="w-full max-w-md bg-gray-900/85 backdrop-blur rounded-2xl shadow-2xl p-6">
+      <h1 class="text-3xl font-bold text-center mb-2">🔒 Acesso ao Portfólio</h1>
+      <p class="text-center text-gray-300 mb-6">Digite a senha para entrar</p>
+      <form id="loginForm" class="space-y-3">
+        <input type="password" id="loginPassword" class="w-full border rounded-lg px-3 py-2 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="••••••••" />
+        <button class="w-full px-4 py-2 bg-white text-purple-700 rounded-lg font-semibold hover:bg-gray-100 transition">Entrar</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- App -->
+  <div id="app" class="hidden relative z-10">
+    <!-- Header transparente -->
+    <header class="bg-transparent text-white p-6 shadow-lg flex items-center justify-between">
+      <h1 class="text-2xl font-bold">📁 Meu Portfólio</h1>
+      <button onclick="logout()" class="px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700">Sair</button>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex justify-center gap-3 p-4 bg-gray-800/70 sticky top-0 z-20 backdrop-blur rounded-b-2xl">
+      <button id="tabPhotos" class="pill active" onclick="switchTab('photos')">📸 Fotos</button>
+      <button id="tabVideos" class="pill" onclick="switchTab('videos')">🎬 Vídeos</button>
+    </div>
+
+    <!-- ===== FOTOS ===== -->
+    <section id="photosSection" class="space-y-4">
+      <nav id="menuPhotos" class="flex flex-wrap justify-center gap-3 bg-gray-800/70 backdrop-blur shadow-md p-4 rounded-2xl">
+        <input type="text" id="searchPhotosInput" placeholder="🔍 Buscar fotos..." oninput="searchPhotos()"
+               class="border rounded-full px-4 py-2 ml-3 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-700 text-white placeholder-gray-300">
+      </nav>
+
+      <section class="bg-gray-800/70 backdrop-blur shadow-md rounded-2xl p-6 mx-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">📤 Adicionar Fotos (múltiplas)</h2>
+          <span id="photosCount" class="text-sm opacity-75"></span>
+        </div>
+        <form id="uploadPhotoForm" class="grid gap-3 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm opacity-80">Selecione um ou mais arquivos</label>
+            <input type="file" id="photoInput" accept="image/*" multiple class="border p-2 rounded-lg bg-gray-900 text-white">
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-sm opacity-80">Categoria (opcional, vale para o lote)</label>
+            <input type="text" id="photoCategory" placeholder="Ex: viagem, família, 2025" class="border p-2 rounded-lg bg-gray-900 text-white">
+          </div>
+          <button type="submit" class="sm:col-span-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-800 transition">Adicionar fotos selecionadas</button>
+        </form>
+        <div id="dropzone" class="dropzone">Arraste e solte suas fotos aqui (múltiplas)</div>
+        <div class="progress"><div id="photoProgress"></div></div>
+        <button onclick="clearAllPhotos()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800 transition">🧹 Limpar Todas as Fotos</button>
+      </section>
+
+      <section id="galleryPhotos" class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></section>
+    </section>
+
+    <!-- ===== VÍDEOS (IndexedDB) ===== -->
+    <section id="videosSection" class="space-y-4 hidden">
+      <nav id="menuVideos" class="flex flex-wrap justify-center gap-3 bg-gray-800/70 backdrop-blur shadow-md p-4 rounded-2xl">
+        <input type="text" id="searchVideosInput" placeholder="🔍 Buscar vídeos..." oninput="searchVideos()"
+               class="border rounded-full px-4 py-2 ml-3 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-700 text-white placeholder-gray-300">
+      </nav>
+
+      <section class="bg-gray-800/70 backdrop-blur shadow-md rounded-2xl p-6 mx-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">📤 Adicionar Vídeos (múltiplos)</h2>
+          <span id="videosCount" class="text-sm opacity-75"></span>
+        </div>
+        <form id="uploadVideoForm" class="grid gap-3 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm opacity-80">Selecione um ou mais vídeos</label>
+            <input type="file" id="videoInput" accept="video/*" multiple class="border p-2 rounded-lg bg-gray-900 text-white">
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-sm opacity-80">Categoria (opcional, vale para o lote)</label>
+            <input type="text" id="videoCategory" placeholder="Ex: vlog, show, 2025" class="border p-2 rounded-lg bg-gray-900 text-white">
+          </div>
+          <button type="submit" class="sm:col-span-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-800 transition">Adicionar vídeos selecionados</button>
+        </form>
+        <div class="vidlink-row">
+          <input type="url" id="videoUrlInput" class="vidlink-input border p-2 rounded" placeholder="Cole o link do vídeo (MP4/WebM) ou do YouTube">
+          <input type="text" id="videoUrlCategory" class="border p-2 rounded" placeholder="Categoria (opcional)">
+          <button type="button" id="addVideoUrlBtn" class="px-3 py-2 rounded bg-purple-600 text-white">Adicionar por link</button>
+        </div>
+    
+        <div id="dropzoneVideos" class="dropzone">Arraste e solte seus vídeos aqui (múltiplos)</div>
+        <div class="progress"><div id="videoProgress"></div></div>
+        <button onclick="clearAllVideos()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800 transition">🧹 Limpar Todos os Vídeos</button>
+        <p class="text-xs text-gray-400">Vídeos são guardados no <strong>IndexedDB</strong> (suporta arquivos grandes).</p>
+      </section>
+
+      <section id="galleryVideos" class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></section>
+    </section>
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 hidden items-center justify-center z-50">
+    <div class="absolute top-4 right-4 flex gap-2">
+      <a id="downloadBtn" href="#" download="foto.jpg" class="hidden px-3 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm font-semibold hover:bg-white transition shadow">⬇️ Baixar</a>
+      <button onclick="closeLightbox()" class="px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition shadow">✖ Fechar</button>
+    </div>
+    <div id="lightboxContent" class="max-w-[90%] max-h-[80%]"></div>
+  </div>
+
+  <script>
+    // ===== Login (senha fixa) =====
+    const FIXED_PASSWORD = "1234";
+    const loginPage = document.getElementById('loginPage');
+    const app = document.getElementById('app');
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const pwd = document.getElementById('loginPassword').value;
+      if(pwd === FIXED_PASSWORD){
+        loginPage.classList.add('hidden'); app.classList.remove('hidden');
+        renderPhotos(); openDB().then(()=>renderVideos());
+      } else { alert("Senha incorreta!"); }
+    });
+    function logout(){ app.classList.add('hidden'); loginPage.classList.remove('hidden'); document.getElementById('loginPassword').value=""; }
+
+    // ===== Utils comuns =====
+    function currentYear(){ return new Date().getFullYear().toString(); }
+    function readAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+    function getPhotos(){ return JSON.parse(localStorage.getItem('photos')||'[]'); }
+    function setPhotos(arr){ localStorage.setItem('photos', JSON.stringify(arr)); }
+
+    // ===== Abas =====
+    function switchTab(tab){
+      const photosSection = document.getElementById('photosSection');
+      const videosSection = document.getElementById('videosSection');
+      const tabPhotos = document.getElementById('tabPhotos');
+      const tabVideos = document.getElementById('tabVideos');
+      if(tab==='photos'){
+        photosSection.classList.remove('hidden'); videosSection.classList.add('hidden');
+        tabPhotos.classList.add('active'); tabVideos.classList.remove('active');
+      } else {
+        photosSection.classList.add('hidden'); videosSection.classList.remove('hidden');
+        tabVideos.classList.add('active'); tabPhotos.classList.remove('active');
+      }
+    }
+
+    // ===== Fotos (localStorage) =====
+    const galleryPhotos = document.getElementById('galleryPhotos');
+    const menuPhotos = document.getElementById('menuPhotos');
+    const searchPhotosInput = document.getElementById('searchPhotosInput');
+    const dropzone = document.getElementById('dropzone');
+    const photosCount = document.getElementById('photosCount');
+    const photoProgress = document.getElementById('photoProgress');
+
+    function renderPhotos(){
+      galleryPhotos.innerHTML = '';
+      const items = getPhotos();
+      photosCount.textContent = items.length ? `${items.length} foto(s)` : 'Sem fotos ainda';
+      items.forEach((p, idx)=>{
+        const card = document.createElement('div'); card.className = 'relative group'; card.dataset.category = p.category;
+        const img = document.createElement('img'); img.src = p.src; img.alt = 'Foto';
+        img.className='rounded-2xl shadow-lg cursor-pointer transform group-hover:scale-105 transition duration-300';
+        img.onclick = ()=>openLightbox({type:'image', src:p.src});
+        const del = document.createElement('button'); del.innerHTML = '✖';
+        del.className='absolute top-2 right-2 bg-red-600 text-white rounded-full px-2 py-1 text-sm hover:bg-red-800 transition';
+        del.onclick = ()=>{ const a=getPhotos(); a.splice(idx,1); setPhotos(a); renderPhotos(); renderPhotoCategories(); };
+        card.appendChild(img); card.appendChild(del); galleryPhotos.appendChild(card);
+      });
+      renderPhotoCategories();
+    }
+    function renderPhotoCategories(){
+      const items=getPhotos(); const categories=new Set(['all']); items.forEach(p=>categories.add((p.category||'').toLowerCase()));
+      menuPhotos.innerHTML=''; categories.forEach(cat=>{ const btn=document.createElement('button'); btn.textContent=cat==='all'?'Todas':cat[0].toUpperCase()+cat.slice(1);
+        btn.className=cat==='all'?'pill active':'pill'; btn.onclick=()=>filterBy(menuPhotos,galleryPhotos,cat); menuPhotos.appendChild(btn); }); menuPhotos.appendChild(searchPhotosInput);
+    }
+    function filterBy(menuEl, galleryEl, cat){
+      const cards = galleryEl.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ const ok = (cat==='all') || (c.dataset.category||'').toLowerCase().includes(cat.toLowerCase()); c.classList.toggle('hidden', !ok); });
+    }
+    function searchPhotos(){
+      const q=(searchPhotosInput.value||'').toLowerCase(); const cards=galleryPhotos.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ c.classList.toggle('hidden', !(c.dataset.category||'').toLowerCase().includes(q)); });
+    }
+    document.getElementById('uploadPhotoForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const files = Array.from(document.getElementById('photoInput').files || []);
+      let category=(document.getElementById('photoCategory').value||'').trim(); if(files.length===0) return; if(!category) category=currentYear();
+      const photos=getPhotos(); let done=0;
+      for(const f of files){ const src=await readAsDataURL(f); photos.push({src, category}); done++; photoProgress.style.width=Math.round(done/files.length*100)+'%'; }
+      setPhotos(photos); setTimeout(()=>photoProgress.style.width='0%', 500); e.target.reset(); renderPhotos();
+    });
+    ['dragenter','dragover'].forEach(ev=>dropzone.addEventListener(ev,(e)=>{ e.preventDefault(); dropzone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev=>dropzone.addEventListener(ev,(e)=>{ e.preventDefault(); dropzone.classList.remove('dragover'); }));
+    dropzone.addEventListener('drop', async (e)=>{
+      const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('image/')); if(files.length===0) return;
+      let category=(document.getElementById('photoCategory').value||'').trim(); if(!category) category=currentYear();
+      const photos=getPhotos(); let done=0;
+      for(const f of files){ const src=await readAsDataURL(f); photos.push({src, category}); done++; photoProgress.style.width=Math.round(done/files.length*100)+'%'; }
+      setPhotos(photos); renderPhotos(); setTimeout(()=>photoProgress.style.width='0%', 500);
+    });
+    function clearAllPhotos(){ if(confirm('Apagar todas as fotos?')){ localStorage.removeItem('photos'); renderPhotos(); } }
+
+    // ===== Vídeos (IndexedDB) =====
+    const galleryVideos=document.getElementById('galleryVideos');
+    const menuVideos=document.getElementById('menuVideos');
+    const searchVideosInput=document.getElementById('searchVideosInput');
+    const dropzoneVideos=document.getElementById('dropzoneVideos');
+    const videosCount=document.getElementById('videosCount');
+    const videoProgress=document.getElementById('videoProgress');
+
+    let db=null;
+    function openDB(){
+      return new Promise((resolve,reject)=>{
+        const req=indexedDB.open('portfolioDB',1);
+        req.onupgradeneeded=(e)=>{
+          const db=e.target.result;
+          if(!db.objectStoreNames.contains('videos')){
+            const store=db.createObjectStore('videos',{keyPath:'id',autoIncrement:true});
+            store.createIndex('category','category',{unique:false});
+          }
+        };
+        req.onsuccess=()=>{ db=req.result; resolve(); };
+        req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbAddVideo(blob, category){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const data={blob, category: (category||'').trim()}; const addReq=store.add(data);
+        addReq.onsuccess=()=>resolve(addReq.result);
+        addReq.onerror=(e)=>reject(e);
+      });
+    }
+    function idbGetAllVideos(){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readonly'); const store=tx.objectStore('videos');
+        const req=store.getAll(); req.onsuccess=()=>resolve(req.result); req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbDeleteVideo(id){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const req=store.delete(id); req.onsuccess=()=>resolve(); req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbClearVideos(){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const req=store.clear(); req.onsuccess=()=>resolve(); req.onerror=(e)=>reject(e);
+      });
+    }
+
+    async function renderVideos(){
+      const items = await idbGetAllVideos();
+      galleryVideos.innerHTML='';
+      videosCount.textContent = items.length ? `${items.length} vídeo(s)` : 'Sem vídeos ainda';
+      items.forEach((v)=>{
+        const card=document.createElement('div'); card.className='relative group'; card.dataset.category=(v.category||'');
+        const url = URL.createObjectURL(v.blob);
+        const vid=document.createElement('video'); vid.src=url; vid.controls=true; vid.className='rounded-2xl shadow-lg cursor-pointer';
+        vid.onclick=()=>openLightbox({type:'video', src:url});
+        const del=document.createElement('button'); del.innerHTML='✖'; del.className='absolute top-2 right-2 bg-red-600 text-white rounded-full px-2 py-1 text-sm hover:bg-red-800 transition';
+        del.onclick=async ()=>{ await idbDeleteVideo(v.id); renderVideos(); renderVideoCategories(); };
+        card.appendChild(vid); card.appendChild(del); galleryVideos.appendChild(card);
+      });
+      renderVideoCategories();
+    }
+
+    function renderVideoCategories(){
+      idbGetAllVideos().then(items=>{
+        const categories = new Set(['all']); items.forEach(v=>categories.add((v.category||'').toLowerCase()));
+        menuVideos.innerHTML='';
+        categories.forEach(cat=>{
+          const btn=document.createElement('button');
+          btn.textContent = cat==='all' ? 'Todos' : cat.charAt(0).toUpperCase()+cat.slice(1);
+          btn.className = cat==='all' ? 'pill active' : 'pill';
+          btn.onclick = ()=>filterBy(menuVideos, galleryVideos, cat);
+          menuVideos.appendChild(btn);
+        });
+        menuVideos.appendChild(searchVideosInput);
+      });
+    }
+
+    function searchVideos(){
+      const q=(searchVideosInput.value||'').toLowerCase(); const cards=galleryVideos.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ c.classList.toggle('hidden', !(c.dataset.category||'').toLowerCase().includes(q)); });
+    }
+
+    // Multi-upload via input (IndexedDB)
+    document.getElementById('uploadVideoForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const files = Array.from(document.getElementById('videoInput').files || []);
+      let category=(document.getElementById('videoCategory').value||'').trim();
+      if(files.length===0) return;
+      if(!category) category=currentYear();
+      await openDB();
+      let done=0;
+      for(const f of files){
+        try{
+          await idbAddVideo(f, category);
+        }catch(err){
+          console.error(err);
+          alert('Falha ao salvar um vídeo (talvez sem espaço no navegador).');
+          break;
+        }
+        done++; videoProgress.style.width=Math.round(done/files.length*100)+'%';
+      }
+      setTimeout(()=>videoProgress.style.width='0%', 500);
+      e.target.reset(); renderVideos();
+    });
+
+    // Drag & drop múltiplo (IndexedDB)
+    ['dragenter','dragover'].forEach(ev=>dropzoneVideos.addEventListener(ev,(e)=>{ e.preventDefault(); dropzoneVideos.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev=>dropzoneVideos.addEventListener(ev,(e)=>{ e.preventDefault(); dropzoneVideos.classList.remove('dragover'); }));
+    dropzoneVideos.addEventListener('drop', async (e)=>{
+      const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('video/'));
+      if(files.length===0) return;
+      let category=(document.getElementById('videoCategory').value||'').trim(); if(!category) category=currentYear();
+      await openDB();
+      let done=0;
+      for(const f of files){
+        try{
+          await idbAddVideo(f, category);
+        }catch(err){
+          console.error(err);
+          alert('Falha ao salvar um vídeo (talvez sem espaço no navegador).');
+          break;
+        }
+        done++; videoProgress.style.width=Math.round(done/files.length*100)+'%';
+      }
+      setTimeout(()=>videoProgress.style.width='0%', 500);
+      renderVideos();
+    });
+
+    async function clearAllVideos(){
+      if(confirm('Apagar todos os vídeos?')){ await openDB(); await idbClearVideos(); renderVideos(); }
+    }
+
+    // ===== Lightbox (zoom/pan + download p/ fotos) =====
+    const lightbox=document.getElementById('lightbox'); const lightboxContent=document.getElementById('lightboxContent'); const downloadBtn=document.getElementById('downloadBtn');
+    let zoom=1, minZoom=1, maxZoom=4, isPanning=false, startX=0, startY=0, translateX=0, translateY=0, activeType=null, activeMediaEl=null;
+    function openLightbox(item){
+      lightboxContent.innerHTML=''; zoom=1; translateX=0; translateY=0; isPanning=false; activeType=item.type;
+      if(item.type==='image'){
+        const img=document.createElement('img'); img.src=item.src; img.draggable=false;
+        img.className='rounded-2xl shadow-xl border-4 border-white max-h-[80vh] mx-auto select-none';
+        lightboxContent.appendChild(img); activeMediaEl=img;
+        downloadBtn.classList.remove('hidden'); downloadBtn.href=item.src;
+        const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'); downloadBtn.download=`foto-${ts}.jpg`;
+        img.addEventListener('wheel', onWheelZoom,{passive:false}); img.addEventListener('dblclick', toggleZoom); img.addEventListener('mousedown', startPan);
+        window.addEventListener('mousemove', onPanMove); window.addEventListener('mouseup', endPan);
+        img.addEventListener('touchstart', onTouchStart, {passive:false}); img.addEventListener('touchmove', onTouchMove, {passive:false}); img.addEventListener('touchend', onTouchEnd);
+      } else {
+        const vid=document.createElement('video'); vid.src=item.src; vid.controls=true; vid.autoplay=true;
+        vid.className='rounded-2xl shadow-xl border-4 border-white max-h-[80vh] mx-auto';
+        lightboxContent.appendChild(vid); activeMediaEl=vid;
+        downloadBtn.classList.add('hidden'); downloadBtn.removeAttribute('href');
+      }
+      lightbox.classList.remove('hidden'); lightbox.classList.add('flex'); applyTransform();
+    }
+    function closeLightbox(){
+      lightbox.classList.add('hidden'); lightbox.classList.remove('flex');
+      if(activeType==='image' && activeMediaEl){ activeMediaEl.removeEventListener('wheel', onWheelZoom); activeMediaEl.removeEventListener('dblclick', toggleZoom);
+        activeMediaEl.removeEventListener('mousedown', startPan); window.removeEventListener('mousemove', onPanMove); window.removeEventListener('mouseup', endPan);
+        activeMediaEl.removeEventListener('touchstart', onTouchStart); activeMediaEl.removeEventListener('touchmove', onTouchMove); activeMediaEl.removeEventListener('touchend', onTouchEnd);
+      }
+      lightboxContent.innerHTML=''; activeMediaEl=null; activeType=null;
+    }
+    function applyTransform(){ if(activeType!=='image'||!activeMediaEl) return; activeMediaEl.style.transform=`translate(${translateX}px, ${translateY}px) scale(${zoom})`; activeMediaEl.style.transformOrigin='center center'; activeMediaEl.style.cursor=zoom>1?(isPanning?'grabbing':'grab'):'zoom-in'; }
+    function onWheelZoom(e){ e.preventDefault(); const delta=e.deltaY>0?-0.2:0.2; const newZoom=clamp(zoom+delta,minZoom,maxZoom);
+      if(newZoom!==zoom){ const rect=activeMediaEl.getBoundingClientRect(); const cx=e.clientX-rect.left-rect.width/2; const cy=e.clientY-rect.top-rect.height/2; const scale=newZoom/zoom;
+        translateX=(translateX-cx)*scale+cx; translateY=(translateY-cy)*scale+cy; zoom=newZoom; limitPan(); applyTransform(); } }
+    function toggleZoom(){ if(zoom===1){ zoom=2.5; } else { zoom=1; translateX=0; translateY=0; } limitPan(); applyTransform(); }
+    function startPan(e){ if(zoom===1) return; isPanning=true; startX=e.clientX-translateX; startY=e.clientY-translateY; applyTransform(); }
+    function onPanMove(e){ if(!isPanning) return; translateX=e.clientX-startX; translateY=e.clientY-startY; limitPan(); applyTransform(); }
+    function endPan(){ isPanning=false; applyTransform(); }
+    let lastTouchDistance=null;
+    function onTouchStart(e){ if(e.touches.length===1){ if(zoom===1) return; isPanning=true; startX=e.touches[0].clientX-translateX; startY=e.touches[0].clientY-translateY; }
+      else if(e.touches.length===2){ isPanning=false; lastTouchDistance=touchDistance(e.touches); } }
+    function onTouchMove(e){ if(e.touches.length===1 && isPanning){ translateX=e.touches[0].clientX-startX; translateY=e.touches[0].clientY-startY; limitPan(); applyTransform(); }
+      else if(e.touches.length===2){ e.preventDefault(); const d=touchDistance(e.touches); if(lastTouchDistance){ const diff=(d-lastTouchDistance)/200; zoom=clamp(zoom+diff,minZoom,maxZoom); limitPan(); applyTransform(); } lastTouchDistance=d; } }
+    function onTouchEnd(){ isPanning=false; lastTouchDistance=null; applyTransform(); }
+    function touchDistance(touches){ const [a,b]=touches; const dx=a.clientX-b.clientX, dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
+    function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+    function limitPan(){ if(!activeMediaEl) return; const rect=activeMediaEl.getBoundingClientRect(); const maxX=(rect.width*(zoom-1))/2+50; const maxY=(rect.height*(zoom-1))/2+50; translateX=clamp(translateX,-maxX,maxX); translateY=clamp(translateY,-maxY,maxY); }
+  </script>
+
+
+
+
+<!-- START_VIDEO_LINKS -->
+<script>
+// ======= Vídeos por Link — PLUS =======
+(function(){
+  // ===== Configuração de Validação =====
+  // Se quiser limitar os domínios permitidos para links diretos (mp4/webm/ogg),
+  // liste aqui. Ex.: ['prospark.com.br','cdn.meusite.com'].
+  // YouTube é tratado à parte e sempre permitido.
+  const ENFORCE_HOST_WHITELIST = true;
+  const ALLOWED_VIDEO_HOSTS = ['prospark.com.br','youtube.com','www.youtube.com','youtu.be'];
+
+  // ===== Storage (links) via IndexedDB =====
+  const LINKS_DB_NAME = 'portfolioDB_links';
+  const LINKS_STORE = 'videoLinks';
+  let linksDB = null;
+
+  function openLinksDB(){
+    return new Promise((resolve,reject)=>{
+      const req = indexedDB.open(LINKS_DB_NAME, 1);
+      req.onupgradeneeded = (e)=>{
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains(LINKS_STORE)){
+          db.createObjectStore(LINKS_STORE, { keyPath:'id', autoIncrement:true });
+        }
+      };
+      req.onsuccess = ()=>{ linksDB = req.result; resolve(); };
+      req.onerror = (e)=> reject(e.target.error || 'Erro ao abrir DB de links');
+    });
+  }
+
+  function idbLinksGetAll(){
+    return new Promise((resolve,reject)=>{
+      const tx = linksDB.transaction(LINKS_STORE, 'readonly');
+      const st = tx.objectStore(LINKS_STORE);
+      const rq = st.getAll();
+      rq.onsuccess = ()=> resolve(rq.result || []);
+      rq.onerror = (e)=> reject(e.target.error || 'Erro getAll links');
+    });
+  }
+
+  function idbLinksAdd(item){
+    return new Promise((resolve,reject)=>{
+      const tx = linksDB.transaction(LINKS_STORE, 'readwrite');
+      const st = tx.objectStore(LINKS_STORE);
+      const rq = st.add(item);
+      rq.onsuccess = ()=> resolve(rq.result);
+      rq.onerror = (e)=> reject(e.target.error || 'Erro add link');
+    });
+  }
+
+  function idbLinksPut(item){
+    return new Promise((resolve,reject)=>{
+      const tx = linksDB.transaction(LINKS_STORE, 'readwrite');
+      const st = tx.objectStore(LINKS_STORE);
+      const rq = st.put(item);
+      rq.onsuccess = ()=> resolve(rq.result);
+      rq.onerror = (e)=> reject(e.target.error || 'Erro put link');
+    });
+  }
+
+  function idbLinksDelete(id){
+    return new Promise((resolve,reject)=>{
+      const tx = linksDB.transaction(LINKS_STORE, 'readwrite');
+      const st = tx.objectStore(LINKS_STORE);
+      const rq = st.delete(id);
+      rq.onsuccess = ()=> resolve();
+      rq.onerror = (e)=> reject(e.target.error || 'Erro delete link');
+    });
+  }
+
+  async function migrateLocalStorageLinks(){
+    try{
+      const old = JSON.parse(localStorage.getItem('videoLinks') || '[]');
+      if(old && old.length){
+        await openLinksDB();
+        for(const it of old){ await idbLinksAdd({url: it.url, category: it.category||''}); }
+        localStorage.removeItem('videoLinks');
+      }
+    }catch(e){ /* ignora */ }
+  }
+
+  async function getVideoLinks(){ await openLinksDB(); return idbLinksGetAll(); }
+  async function setVideoLinksArray(newArr){
+    await openLinksDB();
+    // Limpa e reescreve para manter ordem
+    const all = await idbLinksGetAll();
+    const tx = linksDB.transaction(LINKS_STORE,'readwrite');
+    const st = tx.objectStore(LINKS_STORE);
+    for(const it of all){ st.delete(it.id); }
+    for(const it of newArr){ st.add(it); }
+    return new Promise(res=>{ tx.oncomplete=()=>res(); });
+  }
+  async function pushVideoLink(item){ await openLinksDB(); return idbLinksAdd(item); }
+  async function updateVideoLink(item){ await openLinksDB(); return idbLinksPut(item); }
+  async function deleteVideoLink(id){ await openLinksDB(); return idbLinksDelete(id); }
+
+  // ===== Helpers =====
+
+  function isYouTube(url){ return /(youtube\.com\/watch\?v=|youtu\.be\/)/i.test(url); }
+  function extractYouTubeId(url){
+    try{
+      // Normalize
+      url = url.trim();
+      // youtu.be/<id>
+      if(url.includes('youtu.be/')){
+        const after = url.split('youtu.be/')[1];
+        return after.split(/[?&/#]/)[0];
+      }
+      const u = new URL(url);
+      // /shorts/<id>, /live/<id>, /embed/<id>
+      const path = u.pathname;
+      const m = path.match(/\/(shorts|live|embed)\/([^/?#]+)/i);
+      if(m && m[2]) return m[2];
+      // watch?v=<id>
+      const vid = u.searchParams.get('v');
+      if(vid) return vid;
+      return null;
+    }catch(e){ return null; }
+  }
+      const u = new URL(url); return u.searchParams.get('v');
+    }catch(e){ return null; }
+  }
+  function toYouTubeEmbed(id){ return id ? 'https://www.youtube-nocookie.com/embed/'+id : null; }
+  function youTubeThumb(id){ return id ? 'https://img.youtube.com/vi/'+id+'/hqdefault.jpg' : null; }
+
+  function hostAllowed(url){
+    if(!ENFORCE_HOST_WHITELIST) return true;
+    try{
+      const u = new URL(url);
+      const h = (u.hostname||'').toLowerCase();
+      return ALLOWED_VIDEO_HOSTS.includes(h);
+    }catch(e){ return false; }
+  }
+
+  // ===== IndexedDB count (opcional) =====
+  async function countIndexedDBVideos(){
+    // Tenta abrir DBs comuns usados no portfólio; se falhar, retorna 0 sem erro.
+    const candidates = [
+      {name:'portfolioDB', store:'videos'},
+      {name:'portfolioDB_SAFE', store:'videos'}
+    ];
+    for(const c of candidates){
+      try{
+        const n = await idbCount(c.name, c.store);
+        if(n>0) return n;
+      }catch(e){ /* ignora e tenta o próximo */ }
+    }
+    return 0;
+  }
+  function idbCount(dbName, storeName){
+    return new Promise((resolve,reject)=>{
+      const req = indexedDB.open(dbName);
+      req.onsuccess = ()=>{
+        const db = req.result;
+        if(!db.objectStoreNames.contains(storeName)){ resolve(0); return; }
+        const tx = db.transaction(storeName,'readonly');
+        const store = tx.objectStore(storeName);
+        const cr = store.count();
+        cr.onsuccess = ()=> resolve(cr.result||0);
+        cr.onerror = ()=> resolve(0);
+      };
+      req.onerror = ()=> resolve(0);
+    });
+  }
+
+  async function updateVideoCounter(){
+    const vcount = document.getElementById('videosCount');
+    if(!vcount) return;
+    try{
+      const links = getVideoLinks().length;
+      const blobs = await countIndexedDBVideos();
+      const total = links + blobs;
+      vcount.textContent = total ? `${total} vídeo(s)` : 'Sem vídeos';
+    }catch(e){
+      // fallback: só links
+      const links = getVideoLinks().length;
+      vcount.textContent = links ? `${links} vídeo(s)` : 'Sem vídeos';
+    }
+  }
+
+  // ===== Renderização =====
+  async function renderVideoLinks(){
+    const links = await getVideoLinks();
+    const container = document.getElementById('galleryVideos') || document.querySelector('#videosSection') || document.body;
+    container.querySelectorAll('[data-linkcard="1"]').forEach(n=>n.remove());
+
+    links.forEach((item, idx)=>{
+      const wrap = document.createElement('div');
+      wrap.setAttribute('data-linkcard','1');
+      wrap.style.position = 'relative';
+      wrap.style.borderRadius='12px';
+      wrap.style.overflow='hidden';
+      wrap.style.boxShadow='0 6px 18px rgba(0,0,0,.35)';
+      wrap.style.background='#111827';
+      wrap.style.display='flex';
+      wrap.style.flexDirection='column';
+
+      const bar = document.createElement('div');
+      bar.style.display='flex'; bar.style.gap='6px'; bar.style.padding='6px'; bar.style.alignItems='center';
+      const cat = document.createElement('span');
+      cat.textContent = item.category||''; cat.style.color='#cbd5e1'; cat.style.fontSize='12px';
+      cat.style.flex='1';
+      const editBtn = document.createElement('button'); editBtn.textContent='✎'; editBtn.title='Editar categoria'; btnStyle(editBtn);
+      const upBtn = document.createElement('button'); upBtn.textContent='↑'; upBtn.title='Mover para cima'; btnStyle(upBtn);
+      const downBtn = document.createElement('button'); downBtn.textContent='↓'; downBtn.title='Mover para baixo'; btnStyle(downBtn);
+      const delBtn = document.createElement('button'); delBtn.textContent='✖'; delBtn.title='Excluir'; btnStyle(delBtn, '#ef4444');
+
+      editBtn.onclick = async ()=>{
+        const nv = prompt('Nova categoria para este vídeo:', item.category||'');
+        if(nv!==null){
+          item.category = nv; await updateVideoLink(item); renderVideoLinks(); updateVideoCounter();
+        }
+      };
+      upBtn.onclick = async ()=>{
+        if(idx===0) return;
+        const arr = await getVideoLinks();
+        const tmp = arr[idx-1]; arr[idx-1]=arr[idx]; arr[idx]=tmp;
+        await setVideoLinksArray(arr); renderVideoLinks();
+      };
+      downBtn.onclick = async ()=>{
+        const arr = await getVideoLinks(); if(idx>=arr.length-1) return;
+        const tmp = arr[idx+1]; arr[idx+1]=arr[idx]; arr[idx]=tmp;
+        await setVideoLinksArray(arr); renderVideoLinks();
+      };
+      delBtn.onclick = async ()=>{
+        await deleteVideoLink(item.id); renderVideoLinks(); updateVideoCounter();
+      };
+      [editBtn, upBtn, downBtn, delBtn].forEach(b=>b.addEventListener('click', (ev)=>ev.stopPropagation()));
+
+      const mediaWrap = document.createElement('div');
+      mediaWrap.style.width='100%'; mediaWrap.style.background='#000';
+
+      if(isYouTube(item.url)){
+        const id = extractYouTubeId(item.url);
+        const thumb = youTubeThumb(id);
+        const ph = document.createElement('div');
+        ph.style.position='relative'; ph.style.paddingTop='56.25%';
+        ph.style.backgroundImage = thumb? `url(${thumb})` : 'none';
+        ph.style.backgroundSize='cover'; ph.style.backgroundPosition='center';
+
+        const pl = document.createElement('div');
+        pl.style.position='absolute'; pl.style.inset='0'; pl.style.display='flex'; pl.style.alignItems='center'; pl.style.justifyContent='center';
+        pl.style.background='linear-gradient(transparent, rgba(0,0,0,.25))';
+        const ico = document.createElement('div');
+        ico.style.width='64px'; ico.style.height='64px'; ico.style.borderRadius='50%'; ico.style.background='rgba(0,0,0,.6)';
+        ico.style.display='flex'; ico.style.alignItems='center'; ico.style.justifyContent='center';
+        ico.style.boxShadow='0 6px 16px rgba(0,0,0,.4)';
+        ico.innerHTML='<svg viewBox="0 0 24 24" width="32" height="32" fill="#fff"><path d=\"M8 5v14l11-7z\"></path></svg>';
+        pl.appendChild(ico);
+        ph.appendChild(pl);
+
+        const openBtn = document.createElement('a');
+        openBtn.textContent = 'Abrir no YouTube';
+        openBtn.href = item.url; openBtn.target = '_blank'; openBtn.rel = 'noopener noreferrer';
+        openBtn.style.position='absolute'; openBtn.style.right='8px'; openBtn.style.bottom='8px';
+        openBtn.style.background='rgba(0,0,0,.6)'; openBtn.style.color='#fff'; openBtn.style.padding='6px 10px'; openBtn.style.borderRadius='8px'; openBtn.style.fontSize='12px';
+        ph.appendChild(openBtn);
+
+        ph.onclick = ()=>{ openLinkLightbox(item); return; };
+        mediaWrap.appendChild(ph);
+      } else {
+        const vid = document.createElement('video');
+        vid.src = item.url; vid.controls = true; vid.style.width='100%';
+        vid.addEventListener('click', (e)=>{ e.preventDefault(); openLinkLightbox(item); });
+        mediaWrap.appendChild(vid);
+      }
+
+      wrap.appendChild(mediaWrap);
+      wrap.appendChild(bar);
+      container.appendChild(wrap);
+    });
+
+    updateVideoCounter();
+  }
+      };
+      upBtn.onclick = ()=>{
+        if(idx===0) return;
+        const arr = getVideoLinks();
+        const tmp = arr[idx-1]; arr[idx-1]=arr[idx]; arr[idx]=tmp;
+        setVideoLinks(arr); renderVideoLinks();
+      };
+      downBtn.onclick = ()=>{
+        const arr = getVideoLinks(); if(idx>=arr.length-1) return;
+        const tmp = arr[idx+1]; arr[idx+1]=arr[idx]; arr[idx]=tmp;
+        setVideoLinks(arr); renderVideoLinks();
+      };
+      delBtn.onclick = ()=>{
+        const arr = getVideoLinks(); arr.splice(idx,1); setVideoLinks(arr); renderVideoLinks(); updateVideoCounter();
+      };
+      // Evitar que clique nos botões abra o lightbox
+      [editBtn, upBtn, downBtn, delBtn].forEach(b=>b.addEventListener('click', (ev)=>ev.stopPropagation()));
+};
+
+      bar.appendChild(cat); bar.appendChild(editBtn); bar.appendChild(upBtn); bar.appendChild(downBtn); bar.appendChild(delBtn);
+
+      // Mídia (thumb YouTube ou vídeo direto)
+      const mediaWrap = document.createElement('div');
+      mediaWrap.style.width='100%'; mediaWrap.style.background='#000';
+
+      if(isYouTube(item.url)){
+        const id = extractYouTubeId(item.url);
+        const thumb = youTubeThumb(id);
+        const ph = document.createElement('div');
+        ph.style.position='relative'; ph.style.paddingTop='56.25%'; // 16:9
+        ph.style.backgroundImage = thumb? `url(${thumb})` : 'none';
+        ph.style.backgroundSize='cover'; ph.style.backgroundPosition='center';
+
+        // Play overlay
+        const pl = document.createElement('div');
+        pl.style.position='absolute'; pl.style.inset='0'; pl.style.display='flex'; pl.style.alignItems='center'; pl.style.justifyContent='center';
+        pl.style.background='linear-gradient(transparent, rgba(0,0,0,.25))';
+        const ico = document.createElement('div');
+        ico.style.width='64px'; ico.style.height='64px'; ico.style.borderRadius='50%'; ico.style.background='rgba(0,0,0,.6)';
+        ico.style.display='flex'; ico.style.alignItems='center'; ico.style.justifyContent='center';
+        ico.style.boxShadow='0 6px 16px rgba(0,0,0,.4)';
+        ico.innerHTML='<svg viewBox="0 0 24 24" width="32" height="32" fill="#fff"><path d="M8 5v14l11-7z"></path></svg>';
+        pl.appendChild(ico);
+        ph.appendChild(pl);
+
+        ph.onclick = ()=>{ openLinkLightbox(item); return; /* fallback in-place (não usado) */
+          const iframe = document.createElement('iframe');
+          iframe.src = (toYouTubeEmbed(id) || '') + '?autoplay=1';
+          iframe.width='100%'; iframe.height='315';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          iframe.allowFullscreen = true;
+          mediaWrap.innerHTML = '';
+          mediaWrap.appendChild(iframe);
+        };
+
+        // Botão abrir no YouTube
+        const openBtn = document.createElement('a');
+        openBtn.textContent = 'Abrir no YouTube';
+        openBtn.href = item.url;
+        openBtn.target = '_blank';
+        openBtn.rel = 'noopener noreferrer';
+        openBtn.style.position='absolute';
+        openBtn.style.right='8px'; openBtn.style.bottom='8px';
+        openBtn.style.background='rgba(0,0,0,.6)'; openBtn.style.color='#fff';
+        openBtn.style.padding='6px 10px'; openBtn.style.borderRadius='8px'; openBtn.style.fontSize='12px';
+        ph.appendChild(openBtn);
+        mediaWrap.appendChild(ph);
+      } else {
+        const vid = document.createElement('video');
+        vid.addEventListener('click', (e)=>{ e.preventDefault(); openLinkLightbox(item); });
+        vid.src = item.url; vid.controls = true; vid.style.width='100%';
+        mediaWrap.appendChild(vid);
+      }
+
+      wrap.appendChild(mediaWrap);
+      wrap.appendChild(bar);
+      container.appendChild(wrap);
+    });
+
+    updateVideoCounter();
+  }
+
+  function btnStyle(b, bg){
+    b.style.border='0'; b.style.borderRadius='8px';
+    b.style.padding='4px 8px'; b.style.cursor='pointer';
+    b.style.background = bg || '#374151'; b.style.color='#fff';
+    b.style.fontSize='12px';
+  }
+
+  function setupAddByLink(){
+    const btn = document.getElementById('addVideoUrlBtn');
+    if(!btn) return;
+    btn.addEventListener('click', async ()=>{
+      const url = (document.getElementById('videoUrlInput')?.value||'').trim();
+      const cat = (document.getElementById('videoUrlCategory')?.value||'').trim();
+      if(!url){ alert('Cole o link do vídeo.'); return; }
+      let ok = false;
+      if(isYouTube(url)){ ok = true; }
+      else if(/^https?:\/\//i.test(url)){
+        if(/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)){
+          ok = hostAllowed(url);
+          if(!ok){ alert('Domínio não permitido para links diretos. Edite a lista ALLOWED_VIDEO_HOSTS no código.'); return; }
+        } else { alert('Use um link direto para vídeo (.mp4, .webm, .ogg) ou um link do YouTube.'); return; }
+      } else { alert('Link inválido.'); return; }
+
+      await pushVideoLink({ url, category: cat||'' });
+      await renderVideoLinks();
+      const input = document.getElementById('videoUrlInput'); if(input) input.value='';
+      updateVideoCounter();
+    });
+  }
+      let ok = false;
+      if(isYouTube(url)){ ok = true; }
+      else if(/^https?:\/\//i.test(url)){
+        if(/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)){
+          ok = hostAllowed(url);
+          if(!ok){ alert('Domínio não permitido para links diretos. Edite a lista ALLOWED_VIDEO_HOSTS no código.'); return; }
+        } else {
+          alert('Use um link direto para vídeo (.mp4, .webm, .ogg) ou um link do YouTube.'); return;
+        }
+      } else { alert('Link inválido.'); return; }
+
+      const arr = getVideoLinks(); arr.push({ url, category: cat||'' }); setVideoLinks(arr);
+      renderVideoLinks();
+      const input = document.getElementById('videoUrlInput'); if(input) input.value='';
+      updateVideoCounter();
+    });
+  }
+
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', async ()=>{ await migrateLocalStorageLinks();
+    setupAddByLink();
+    try{ renderVideoLinks(); }catch(e){ console.warn('Falha renderVideoLinks', e); }
+  });
+
+  // Lightbox para vídeos por link
+  function openLinkLightbox(item){
+    try{
+      const lb = document.getElementById('linkLightbox');
+      const content = document.getElementById('lbContent');
+      const dl = document.getElementById('lbDownload');
+      content.innerHTML = '';
+      // Se for YouTube, iframe; se for direto, video com controls
+      if(isYouTube(item.url)){
+        const id = extractYouTubeId(item.url);
+        const src = (toYouTubeEmbed(id)||'') + '?autoplay=1';
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        content.appendChild(iframe);
+        dl.style.display='none'; dl.removeAttribute('href');
+      } else {
+        const vid = document.createElement('video');
+        vid.addEventListener('click', (e)=>{ e.preventDefault(); openLinkLightbox(item); });
+        vid.src = item.url; vid.controls = true; vid.autoplay = true;
+        content.appendChild(vid);
+        // download disponível para arquivo direto
+        dl.style.display='inline-block'; dl.href = item.url;
+      }
+      lb.classList.add('open');
+    }catch(e){ console.error('Lightbox error', e); }
+  }
+  function closeLinkLightbox(){
+    const lb = document.getElementById('linkLightbox');
+    const content = document.getElementById('lbContent');
+    lb.classList.remove('open'); content.innerHTML='';
+  }
+  document.addEventListener('DOMContentLoaded', async ()=>{ await migrateLocalStorageLinks();
+    const c = document.getElementById('lbClose'); if(c) c.addEventListener('click', closeLinkLightbox);
+    const lb = document.getElementById('linkLightbox'); if(lb) lb.addEventListener('click', (e)=>{ if(e.target===lb) closeLinkLightbox(); });
+  });
+
+  // Expor utilitário global opcional
+  window.renderVideoLinks = renderVideoLinks;
+  window.updateVideoCounter = updateVideoCounter;
+})();
+</script>
+<!-- END_VIDEO_LINKS -->
+
+
+  <style>
+    /* Lightbox para vídeos por link */
+    #linkLightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9999}
+    #linkLightbox.open{display:flex}
+    #linkLightbox .box{max-width:90vw;max-height:80vh;background:#0b1220;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:10px;position:relative}
+    #linkLightbox .close{position:absolute;top:8px;right:8px;background:#ef4444;border:0;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer}
+    #linkLightbox .dl{position:absolute;top:8px;left:8px;background:#e5e7eb;border:0;color:#111827;border-radius:10px;padding:8px 12px;cursor:pointer;text-decoration:none}
+    #linkLightbox .content{width:min(84vw,1100px);height:min(70vh,620px)}
+    #linkLightbox iframe,#linkLightbox video{width:100%;height:100%;border:0;border-radius:8px;background:#000}
+  </style>
+  <div id="linkLightbox">
+    <div class="box">
+      <a id="lbDownload" class="dl" href="#" download target="_blank" rel="noopener">⬇️ Baixar</a>
+      <button class="close" id="lbClose">✖</button>
+      <div class="content" id="lbContent"></div>
+    </div>
+  </div>
+
+</body>
+</html>
