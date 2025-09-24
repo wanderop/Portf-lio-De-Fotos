@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portfólio — Compacto (FIX Login)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body,html {margin:0; padding:0; height:100%;}
+    #bgVideo { position: fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-2; }
+    .overlay { background: rgba(0,0,0,0.6); position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1; }
+    .dropzone{border:2px dashed #6b7280;border-radius:.75rem;padding:.5rem;text-align:center}
+    .dropzone.dragover{border-color:#8b5cf6;background:#1f2937}
+    .progress{height:6px;background:#374151;border-radius:9999px;overflow:hidden}
+    .progress > div{height:100%;background:#8b5cf6;width:0%}
+    .pill{padding:.25rem .6rem;border-radius:9999px;background:#4b5563;font-size:.85rem}
+    .pill.active{background:#7c3aed;color:white}
+    .card-compact{background:rgba(31,41,55,.8); backdrop-filter:saturate(120%) blur(6px); border-radius:.75rem; padding:1rem;}
+    .section-gap{margin-left:1rem; margin-right:1rem;}
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans text-[15px]">
+
+  <!-- Vídeo de fundo -->
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="top-bg.mp4" type="video/mp4">
+  </video>
+  <div class="overlay"></div>
+
+  <!-- Login -->
+  <section id="loginPage" class="min-h-screen flex items-center justify-center p-4 relative z-10">
+    <div class="w-full max-w-md bg-gray-900/85 backdrop-blur rounded-xl shadow-2xl p-4">
+      <h1 class="text-2xl font-bold text-center mb-1">🔒 Acesso ao Portfólio</h1>
+      <p class="text-center text-gray-300 mb-4 text-sm">Digite a senha para entrar</p>
+      <form id="loginForm" class="space-y-2">
+        <input type="password" id="loginPassword" class="w-full border rounded-lg px-3 py-2 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="••••••••" />
+        <button class="w-full px-3 py-2 bg-white text-purple-700 rounded-lg font-semibold hover:bg-gray-100 transition text-sm">Entrar</button>
+      </form>
+      <p id="loginHint" class="text-center text-xs text-gray-400 mt-2">Senha padrão: 1234</p>
+    </div>
+  </section>
+
+  <!-- App -->
+  <div id="app" class="hidden relative z-10">
+    <!-- Header transparente -->
+    <header class="bg-transparent text-white px-4 py-3 shadow-lg flex items-center justify-between">
+      <h1 class="text-xl font-bold">📁 Meu Portfólio</h1>
+      <button onclick="logout()" class="px-3 py-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 text-sm">Sair</button>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex justify-center gap-2 px-4 py-3 bg-gray-800/60 sticky top-0 z-20 backdrop-blur rounded-b-xl">
+      <button id="tabPhotos" class="pill active" onclick="switchTab('photos')">📸 Fotos</button>
+      <button id="tabVideos" class="pill" onclick="switchTab('videos')">🎬 Vídeos</button>
+    </div>
+
+    <!-- ===== FOTOS ===== -->
+    <section id="photosSection" class="space-y-2">
+      <nav id="menuPhotos" class="flex flex-wrap justify-center gap-2 card-compact section-gap">
+        <input type="text" id="searchPhotosInput" placeholder="🔍 Buscar fotos..." oninput="searchPhotos()"
+               class="border rounded-full px-3 py-1.5 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-700 text-white placeholder-gray-300 text-sm">
+      </nav>
+
+      <!-- Upload -->
+      <section class="card-compact section-gap space-y-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">📤 Adicionar Fotos (múltiplas)</h2>
+          <span id="photosCount" class="text-xs opacity-75"></span>
+        </div>
+        <form id="uploadPhotoForm" class="grid gap-2 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs opacity-80">Selecione um ou mais arquivos</label>
+            <input type="file" id="photoInput" accept="image/*" multiple class="border p-1.5 rounded-lg bg-gray-900 text-white text-sm">
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs opacity-80">Categoria (opcional, vale para o lote)</label>
+            <input type="text" id="photoCategory" placeholder="Ex: viagem, família, 2025" class="border p-1.5 rounded-lg bg-gray-900 text-white text-sm">
+          </div>
+          <button type="submit" class="sm:col-span-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-800 transition text-sm">Adicionar fotos selecionadas</button>
+        </form>
+        <div id="dropzone" class="dropzone text-sm">Arraste e solte suas fotos aqui (múltiplas)</div>
+        <div class="progress"><div id="photoProgress"></div></div>
+        <button onclick="clearAllPhotos()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-800 transition text-sm">🧹 Limpar Todas as Fotos</button>
+      </section>
+
+      <!-- Galeria -->
+      <section id="galleryPhotos" class="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></section>
+    </section>
+
+    <!-- ===== VÍDEOS (IndexedDB) ===== -->
+    <section id="videosSection" class="space-y-2 hidden">
+      <nav id="menuVideos" class="flex flex-wrap justify-center gap-2 card-compact section-gap">
+        <input type="text" id="searchVideosInput" placeholder="🔍 Buscar vídeos..." oninput="searchVideos()"
+               class="border rounded-full px-3 py-1.5 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-700 text-white placeholder-gray-300 text-sm">
+      </nav>
+
+      <section class="card-compact section-gap space-y-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">📤 Adicionar Vídeos (múltiplos)</h2>
+          <span id="videosCount" class="text-xs opacity-75"></span>
+        </div>
+        <form id="uploadVideoForm" class="grid gap-2 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs opacity-80">Selecione um ou mais vídeos</label>
+            <input type="file" id="videoInput" accept="video/*" multiple class="border p-1.5 rounded-lg bg-gray-900 text-white text-sm">
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs opacity-80">Categoria (opcional, vale para o lote)</label>
+            <input type="text" id="videoCategory" placeholder="Ex: vlog, show, 2025" class="border p-1.5 rounded-lg bg-gray-900 text-white text-sm">
+          </div>
+          <button type="submit" class="sm:col-span-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-800 transition text-sm">Adicionar vídeos selecionados</button>
+        </form>
+        <div id="dropzoneVideos" class="dropzone text-sm">Arraste e solte seus vídeos aqui (múltiplos)</div>
+        <div class="progress"><div id="videoProgress"></div></div>
+        <button onclick="clearAllVideos()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-800 transition text-sm">🧹 Limpar Todos os Vídeos</button>
+        <p class="text-[11px] text-gray-400">Vídeos são guardados no <strong>IndexedDB</strong> (suporta arquivos grandes).</p>
+      </section>
+
+      <section id="galleryVideos" class="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></section>
+    </section>
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 hidden items-center justify-center z-50">
+    <div class="absolute top-3 right-3 flex gap-2">
+      <a id="downloadBtn" href="#" download="foto.jpg" class="hidden px-3 py-1.5 bg-gray-100 text-gray-900 rounded-lg text-xs font-semibold hover:bg-white transition shadow">⬇️ Baixar</a>
+      <button onclick="closeLightbox()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition shadow">✖ Fechar</button>
+    </div>
+    <div id="lightboxContent" class="max-w-[90%] max-h-[80%]"></div>
+  </div>
+
+  <script>
+    // ===== Login (senha fixa) =====
+    const FIXED_PASSWORD = "1234";
+    const loginPage = document.getElementById('loginPage');
+    const app = document.getElementById('app');
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const pwdInput = document.getElementById('loginPassword');
+      const pwd = pwdInput ? pwdInput.value : "";
+      if(pwd === FIXED_PASSWORD){
+        // Mostra o app primeiro para não travar o login por causa de erros subsequentes
+        loginPage.classList.add('hidden'); 
+        app.classList.remove('hidden');
+
+        // Inicializa em background com proteção
+        setTimeout(async () => {
+          try {
+            if (typeof renderPhotos === "function") renderPhotos();
+          } catch (err) {
+            console.error("Erro ao renderizar fotos:", err);
+          }
+          try {
+            if (typeof openDB === "function") {
+              await openDB();
+              if (typeof renderVideos === "function") renderVideos();
+            }
+          } catch (err) {
+            console.error("Erro ao inicializar vídeos (IndexedDB):", err);
+          }
+        }, 0);
+
+      } else { 
+        alert("Senha incorreta!"); 
+      }
+    });
+    function logout(){ app.classList.add('hidden'); loginPage.classList.remove('hidden'); const i=document.getElementById('loginPassword'); if(i) i.value=""; }
+
+    // ===== Utils comuns =====
+    function currentYear(){ return new Date().getFullYear().toString(); }
+    function readAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+    function getPhotos(){ return JSON.parse(localStorage.getItem('photos')||'[]'); }
+    function setPhotos(arr){ localStorage.setItem('photos', JSON.stringify(arr)); }
+
+    // ===== Abas =====
+    function switchTab(tab){
+      const photosSection = document.getElementById('photosSection');
+      const videosSection = document.getElementById('videosSection');
+      const tabPhotos = document.getElementById('tabPhotos');
+      const tabVideos = document.getElementById('tabVideos');
+      if(tab==='photos'){
+        photosSection.classList.remove('hidden'); videosSection.classList.add('hidden');
+        tabPhotos.classList.add('active'); tabVideos.classList.remove('active');
+      } else {
+        photosSection.classList.add('hidden'); videosSection.classList.remove('hidden');
+        tabVideos.classList.add('active'); tabPhotos.classList.remove('active');
+      }
+    }
+
+    // ===== Fotos (localStorage) =====
+    const galleryPhotos = document.getElementById('galleryPhotos');
+    const menuPhotos = document.getElementById('menuPhotos');
+    const searchPhotosInput = document.getElementById('searchPhotosInput');
+    const dropzone = document.getElementById('dropzone');
+    const photosCount = document.getElementById('photosCount');
+    const photoProgress = document.getElementById('photoProgress');
+
+    function renderPhotos(){
+      galleryPhotos.innerHTML = '';
+      const items = getPhotos();
+      photosCount.textContent = items.length ? `${items.length} foto(s)` : 'Sem fotos ainda';
+      items.forEach((p, idx)=>{
+        const card = document.createElement('div'); card.className = 'relative group'; card.dataset.category = p.category;
+        const img = document.createElement('img'); img.src = p.src; img.alt = 'Foto';
+        img.className='rounded-xl shadow-lg cursor-pointer transform group-hover:scale-105 transition duration-300';
+        img.onclick = ()=>openLightbox({type:'image', src:p.src});
+        const del = document.createElement('button'); del.innerHTML = '✖';
+        del.className='absolute top-2 right-2 bg-red-600 text-white rounded-full px-2 py-1 text-xs hover:bg-red-800 transition';
+        del.onclick = ()=>{ const a=getPhotos(); a.splice(idx,1); setPhotos(a); renderPhotos(); renderPhotoCategories(); };
+        card.appendChild(img); card.appendChild(del); galleryPhotos.appendChild(card);
+      });
+      renderPhotoCategories();
+    }
+    function renderPhotoCategories(){
+      const items=getPhotos(); const categories=new Set(['all']); items.forEach(p=>categories.add((p.category||'').toLowerCase()));
+      menuPhotos.innerHTML=''; categories.forEach(cat=>{ const btn=document.createElement('button'); btn.textContent=cat==='all'?'Todas':cat[0].toUpperCase()+cat.slice(1);
+        btn.className=cat==='all'?'pill active':'pill'; btn.onclick=()=>filterBy(menuPhotos,galleryPhotos,cat); menuPhotos.appendChild(btn); }); menuPhotos.appendChild(searchPhotosInput);
+    }
+    function filterBy(menuEl, galleryEl, cat){
+      const cards = galleryEl.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ const ok = (cat==='all') || (c.dataset.category||'').toLowerCase().includes(cat.toLowerCase()); c.classList.toggle('hidden', !ok); });
+    }
+    function searchPhotos(){
+      const q=(searchPhotosInput.value||'').toLowerCase(); const cards=galleryPhotos.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ c.classList.toggle('hidden', !(c.dataset.category||'').toLowerCase().includes(q)); });
+    }
+    document.getElementById('uploadPhotoForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const files = Array.from(document.getElementById('photoInput').files || []);
+      let category=(document.getElementById('photoCategory').value||'').trim(); if(files.length===0) return; if(!category) category=currentYear();
+      const photos=getPhotos(); let done=0;
+      for(const f of files){ const src=await readAsDataURL(f); photos.push({src, category}); done++; photoProgress.style.width=Math.round(done/files.length*100)+'%'; }
+      setPhotos(photos); setTimeout(()=>photoProgress.style.width='0%', 500); e.target.reset(); renderPhotos();
+    });
+    ['dragenter','dragover'].forEach(ev=>dropzone.addEventListener(ev,(e)=>{ e.preventDefault(); dropzone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev=>dropzone.addEventListener(ev,(e)=>{ e.preventDefault(); dropzone.classList.remove('dragover'); }));
+    dropzone.addEventListener('drop', async (e)=>{
+      const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('image/')); if(files.length===0) return;
+      let category=(document.getElementById('photoCategory').value||'').trim(); if(!category) category=currentYear();
+      const photos=getPhotos(); let done=0;
+      for(const f of files){ const src=await readAsDataURL(f); photos.push({src, category}); done++; photoProgress.style.width=Math.round(done/files.length*100)+'%'; }
+      setPhotos(photos); renderPhotos(); setTimeout(()=>photoProgress.style.width='0%', 500);
+    });
+    function clearAllPhotos(){ if(confirm('Apagar todas as fotos?')){ localStorage.removeItem('photos'); renderPhotos(); } }
+
+    // ===== Vídeos (IndexedDB) =====
+    const galleryVideos=document.getElementById('galleryVideos');
+    const menuVideos=document.getElementById('menuVideos');
+    const searchVideosInput=document.getElementById('searchVideosInput');
+    const dropzoneVideos=document.getElementById('dropzoneVideos');
+    const videosCount=document.getElementById('videosCount');
+    const videoProgress=document.getElementById('videoProgress');
+
+    let db=null;
+    function openDB(){
+      return new Promise((resolve,reject)=>{
+        const req=indexedDB.open('portfolioDB',1);
+        req.onupgradeneeded=(e)=>{
+          const db=e.target.result;
+          if(!db.objectStoreNames.contains('videos')){
+            const store=db.createObjectStore('videos',{keyPath:'id',autoIncrement:true});
+            store.createIndex('category','category',{unique:false});
+          }
+        };
+        req.onsuccess=()=>{ db=req.result; resolve(); };
+        req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbAddVideo(blob, category){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const data={blob, category: (category||'').trim()}; const addReq=store.add(data);
+        addReq.onsuccess=()=>resolve(addReq.result);
+        addReq.onerror=(e)=>reject(e);
+      });
+    }
+    function idbGetAllVideos(){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readonly'); const store=tx.objectStore('videos');
+        const req=store.getAll(); req.onsuccess=()=>resolve(req.result); req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbDeleteVideo(id){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const req=store.delete(id); req.onsuccess=()=>resolve(); req.onerror=(e)=>reject(e);
+      });
+    }
+    function idbClearVideos(){
+      return new Promise((resolve,reject)=>{
+        const tx=db.transaction('videos','readwrite'); const store=tx.objectStore('videos');
+        const req=store.clear(); req.onsuccess=()=>resolve(); req.onerror=(e)=>reject(e);
+      });
+    }
+
+    async function renderVideos(){
+      const items = await idbGetAllVideos();
+      galleryVideos.innerHTML='';
+      videosCount.textContent = items.length ? `${items.length} vídeo(s)` : 'Sem vídeos ainda';
+      items.forEach((v)=>{
+        const card=document.createElement('div'); card.className='relative group'; card.dataset.category=(v.category||'');
+        const url = URL.createObjectURL(v.blob);
+        const vid=document.createElement('video'); vid.src=url; vid.controls=true; vid.className='rounded-xl shadow-lg cursor-pointer';
+        vid.onclick=()=>openLightbox({type:'video', src=url});
+        const del=document.createElement('button'); del.innerHTML='✖'; del.className='absolute top-2 right-2 bg-red-600 text-white rounded-full px-2 py-1 text-xs hover:bg-red-800 transition';
+        del.onclick=async ()=>{ await idbDeleteVideo(v.id); renderVideos(); renderVideoCategories(); };
+        card.appendChild(vid); card.appendChild(del); galleryVideos.appendChild(card);
+      });
+      renderVideoCategories();
+    }
+
+    function renderVideoCategories(){
+      idbGetAllVideos().then(items=>{
+        const categories = new Set(['all']); items.forEach(v=>categories.add((v.category||'').toLowerCase()));
+        menuVideos.innerHTML='';
+        categories.forEach(cat=>{
+          const btn=document.createElement('button');
+          btn.textContent = cat==='all' ? 'Todos' : cat.charAt(0).toUpperCase()+cat.slice(1);
+          btn.className = cat==='all' ? 'pill active' : 'pill';
+          btn.onclick = ()=>filterBy(menuVideos, galleryVideos, cat);
+          menuVideos.appendChild(btn);
+        });
+        menuVideos.appendChild(searchVideosInput);
+      });
+    }
+
+    function searchVideos(){
+      const q=(searchVideosInput.value||'').toLowerCase(); const cards=galleryVideos.querySelectorAll(':scope > div');
+      cards.forEach(c=>{ c.classList.toggle('hidden', !(c.dataset.category||'').toLowerCase().includes(q)); });
+    }
+
+    // Multi-upload via input (IndexedDB)
+    document.getElementById('uploadVideoForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const files = Array.from(document.getElementById('videoInput').files || []);
+      let category=(document.getElementById('videoCategory').value||'').trim();
+      if(files.length===0) return;
+      if(!category) category=currentYear();
+      try {
+        await openDB();
+      } catch (err) {
+        console.error("Falha ao abrir IndexedDB:", err);
+      }
+      let done=0;
+      for(const f of files){
+        try{
+          await idbAddVideo(f, category);
+        }catch(err){
+          console.error(err);
+          alert('Falha ao salvar um vídeo (talvez sem espaço no navegador).');
+          break;
+        }
+        done++; videoProgress.style.width=Math.round(done/files.length*100)+'%';
+      }
+      setTimeout(()=>videoProgress.style.width='0%', 500);
+      e.target.reset(); renderVideos();
+    });
+
+    // Drag & drop múltiplo (IndexedDB)
+    ['dragenter','dragover'].forEach(ev=>dropzoneVideos.addEventListener(ev,(e)=>{ e.preventDefault(); dropzoneVideos.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev=>dropzoneVideos.addEventListener(ev,(e)=>{ e.preventDefault(); dropzoneVideos.classList.remove('dragover'); }));
+    dropzoneVideos.addEventListener('drop', async (e)=>{
+      const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('video/'));
+      if(files.length===0) return;
+      let category=(document.getElementById('videoCategory').value||'').trim(); if(!category) category=currentYear();
+      try {
+        await openDB();
+      } catch (err) {
+        console.error("Falha ao abrir IndexedDB:", err);
+      }
+      let done=0;
+      for(const f of files){
+        try{
+          await idbAddVideo(f, category);
+        }catch(err){
+          console.error(err);
+          alert('Falha ao salvar um vídeo (talvez sem espaço no navegador).');
+          break;
+        }
+        done++; videoProgress.style.width=Math.round(done/files.length*100)+'%';
+      }
+      setTimeout(()=>videoProgress.style.width='0%', 500);
+      renderVideos();
+    });
+
+    async function clearAllVideos(){
+      if(confirm('Apagar todos os vídeos?')){ 
+        try { await openDB(); await idbClearVideos(); } catch (err) { console.error("Erro limpando vídeos:", err); }
+        renderVideos(); 
+      }
+    }
+
+    // ===== Lightbox (zoom/pan + download p/ fotos) =====
+    const lightbox=document.getElementById('lightbox'); const lightboxContent=document.getElementById('lightboxContent'); const downloadBtn=document.getElementById('downloadBtn');
+    let zoom=1, minZoom=1, maxZoom=4, isPanning=false, startX=0, startY=0, translateX=0, translateY=0, activeType=null, activeMediaEl=null;
+    function openLightbox(item){
+      lightboxContent.innerHTML=''; zoom=1; translateX=0; translateY=0; isPanning=false; activeType=item.type;
+      if(item.type==='image'){
+        const img=document.createElement('img'); img.src=item.src; img.draggable=false;
+        img.className='rounded-xl shadow-xl border-4 border-white max-h-[80vh] mx-auto select-none';
+        lightboxContent.appendChild(img); activeMediaEl=img;
+        downloadBtn.classList.remove('hidden'); downloadBtn.href=item.src;
+        const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'); downloadBtn.download=`foto-${ts}.jpg`;
+        img.addEventListener('wheel', onWheelZoom,{passive:false}); img.addEventListener('dblclick', toggleZoom); img.addEventListener('mousedown', startPan);
+        window.addEventListener('mousemove', onPanMove); window.addEventListener('mouseup', endPan);
+        img.addEventListener('touchstart', onTouchStart, {passive:false}); img.addEventListener('touchmove', onTouchMove, {passive:false}); img.addEventListener('touchend', onTouchEnd);
+      } else {
+        const vid=document.createElement('video'); vid.src=item.src; vid.controls=true; vid.autoplay=true;
+        vid.className='rounded-xl shadow-xl border-4 border-white max-h-[80vh] mx-auto';
+        lightboxContent.appendChild(vid); activeMediaEl=vid;
+        downloadBtn.classList.add('hidden'); downloadBtn.removeAttribute('href');
+      }
+      lightbox.classList.remove('hidden'); lightbox.classList.add('flex'); applyTransform();
+    }
+    function closeLightbox(){
+      lightbox.classList.add('hidden'); lightbox.classList.remove('flex');
+      if(activeType==='image' && activeMediaEl){ activeMediaEl.removeEventListener('wheel', onWheelZoom); activeMediaEl.removeEventListener('dblclick', toggleZoom);
+        activeMediaEl.removeEventListener('mousedown', startPan); window.removeEventListener('mousemove', onPanMove); window.removeEventListener('mouseup', endPan);
+        activeMediaEl.removeEventListener('touchstart', onTouchStart); activeMediaEl.removeEventListener('touchmove', onTouchMove); activeMediaEl.removeEventListener('touchend', onTouchEnd);
+      }
+      lightboxContent.innerHTML=''; activeMediaEl=null; activeType=null;
+    }
+    function applyTransform(){ if(activeType!=='image'||!activeMediaEl) return; activeMediaEl.style.transform=`translate(${translateX}px, ${translateY}px) scale(${zoom})`; activeMediaEl.style.transformOrigin='center center'; activeMediaEl.style.cursor=zoom>1?(isPanning?'grabbing':'grab'):'zoom-in'; }
+    function onWheelZoom(e){ e.preventDefault(); const delta=e.deltaY>0?-0.2:0.2; const newZoom=clamp(zoom+delta,minZoom,maxZoom);
+      if(newZoom!==zoom){ const rect=activeMediaEl.getBoundingClientRect(); const cx=e.clientX-rect.left-rect.width/2; const cy=e.clientY-rect.top-rect.height/2; const scale=newZoom/zoom;
+        translateX=(translateX-cx)*scale+cx; translateY=(translateY-cy)*scale+cy; zoom=newZoom; limitPan(); applyTransform(); } }
+    function toggleZoom(){ if(zoom===1){ zoom=2.5; } else { zoom=1; translateX=0; translateY=0; } limitPan(); applyTransform(); }
+    function startPan(e){ if(zoom===1) return; isPanning=true; startX=e.clientX-translateX; startY=e.clientY-translateY; applyTransform(); }
+    function onPanMove(e){ if(!isPanning) return; translateX=e.clientX-startX; translateY=e.clientY-startY; limitPan(); applyTransform(); }
+    function endPan(){ isPanning=false; applyTransform(); }
+    let lastTouchDistance=null;
+    function onTouchStart(e){ if(e.touches.length===1){ if(zoom===1) return; isPanning=true; startX=e.touches[0].clientX-translateX; startY=e.touches[0].clientY-translateY; }
+      else if(e.touches.length===2){ e.preventDefault(); lastTouchDistance=touchDistance(e.touches); } }
+    function onTouchMove(e){ if(e.touches.length===1 && isPanning){ translateX=e.touches[0].clientX-startX; translateY=e.touches[0].clientY-startY; limitPan(); applyTransform(); }
+      else if(e.touches.length===2){ e.preventDefault(); const d=touchDistance(e.touches); if(lastTouchDistance){ const diff=(d-lastTouchDistance)/200; zoom=clamp(zoom+diff,minZoom,maxZoom); limitPan(); applyTransform(); } lastTouchDistance=d; } }
+    function onTouchEnd(){ isPanning=false; lastTouchDistance=null; applyTransform(); }
+    function touchDistance(touches){ const [a,b]=touches; const dx=a.clientX-b.clientX, dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
+    function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+    function limitPan(){ if(!activeMediaEl) return; const rect=activeMediaEl.getBoundingClientRect(); const maxX=(rect.width*(zoom-1))/2+50; const maxY=(rect.height*(zoom-1))/2+50; translateX=clamp(translateX,-maxX,maxX); translateY=clamp(translateY,-maxY,maxY); }
+  </script>
+</body>
+</html>
